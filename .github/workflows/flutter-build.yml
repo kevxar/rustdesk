@@ -131,6 +131,9 @@ jobs:
         run: |
           set -euo pipefail
 
+          : "${RENDEZVOUS_SERVER:?Falta el servidor corporativo}"
+          : "${RS_PUB_KEY:?Falta la clave publica corporativa}"
+
           CONFIG=libs/hbb_common/src/config.rs
 
           sed -i "s|pub const RENDEZVOUS_SERVERS: .*;|pub const RENDEZVOUS_SERVERS: \&[\&str] = \&[\"${RENDEZVOUS_SERVER}\"];|" "$CONFIG"
@@ -443,6 +446,9 @@ jobs:
         run: |
           set -euo pipefail
 
+          : "${RENDEZVOUS_SERVER:?Falta el servidor corporativo}"
+          : "${RS_PUB_KEY:?Falta la clave publica corporativa}"
+
           CONFIG=libs/hbb_common/src/config.rs
 
           sed -i "s|pub const RENDEZVOUS_SERVERS: .*;|pub const RENDEZVOUS_SERVERS: \&[\&str] = \&[\"${RENDEZVOUS_SERVER}\"];|" "$CONFIG"
@@ -617,6 +623,9 @@ jobs:
         run: |
           set -euo pipefail
 
+          : "${RENDEZVOUS_SERVER:?Falta el servidor corporativo}"
+          : "${RS_PUB_KEY:?Falta la clave publica corporativa}"
+
           CONFIG=libs/hbb_common/src/config.rs
 
           sed -i "s|pub const RENDEZVOUS_SERVERS: .*;|pub const RENDEZVOUS_SERVERS: \&[\&str] = \&[\"${RENDEZVOUS_SERVER}\"];|" "$CONFIG"
@@ -764,6 +773,9 @@ jobs:
           RS_PUB_KEY: ${{ secrets.RS_PUB_KEY }}
         run: |
           set -euo pipefail
+
+          : "${RENDEZVOUS_SERVER:?Falta el servidor corporativo}"
+          : "${RS_PUB_KEY:?Falta la clave publica corporativa}"
 
           CONFIG=libs/hbb_common/src/config.rs
 
@@ -1101,6 +1113,9 @@ jobs:
         run: |
           set -euo pipefail
 
+          : "${RENDEZVOUS_SERVER:?Falta el servidor corporativo}"
+          : "${RS_PUB_KEY:?Falta la clave publica corporativa}"
+
           CONFIG=libs/hbb_common/src/config.rs
 
           sed -i "s|pub const RENDEZVOUS_SERVERS: .*;|pub const RENDEZVOUS_SERVERS: \&[\&str] = \&[\"${RENDEZVOUS_SERVER}\"];|" "$CONFIG"
@@ -1396,6 +1411,9 @@ jobs:
         run: |
           set -euo pipefail
 
+          : "${RENDEZVOUS_SERVER:?Falta el servidor corporativo}"
+          : "${RS_PUB_KEY:?Falta la clave publica corporativa}"
+
           CONFIG=libs/hbb_common/src/config.rs
 
           sed -i "s|pub const RENDEZVOUS_SERVERS: .*;|pub const RENDEZVOUS_SERVERS: \&[\&str] = \&[\"${RENDEZVOUS_SERVER}\"];|" "$CONFIG"
@@ -1583,6 +1601,9 @@ jobs:
           RS_PUB_KEY: ${{ secrets.RS_PUB_KEY }}
         run: |
           set -euo pipefail
+
+          : "${RENDEZVOUS_SERVER:?Falta el servidor corporativo}"
+          : "${RS_PUB_KEY:?Falta la clave publica corporativa}"
 
           CONFIG=libs/hbb_common/src/config.rs
 
@@ -1937,6 +1958,9 @@ jobs:
         run: |
           set -euo pipefail
 
+          : "${RENDEZVOUS_SERVER:?Falta el servidor corporativo}"
+          : "${RS_PUB_KEY:?Falta la clave publica corporativa}"
+
           CONFIG=libs/hbb_common/src/config.rs
 
           sed -i "s|pub const RENDEZVOUS_SERVERS: .*;|pub const RENDEZVOUS_SERVERS: \&[\&str] = \&[\"${RENDEZVOUS_SERVER}\"];|" "$CONFIG"
@@ -2162,6 +2186,9 @@ jobs:
         run: |
           set -euo pipefail
 
+          : "${RENDEZVOUS_SERVER:?Falta el servidor corporativo}"
+          : "${RS_PUB_KEY:?Falta la clave publica corporativa}"
+
           CONFIG=libs/hbb_common/src/config.rs
 
           sed -i "s|pub const RENDEZVOUS_SERVERS: .*;|pub const RENDEZVOUS_SERVERS: \&[\&str] = \&[\"${RENDEZVOUS_SERVER}\"];|" "$CONFIG"
@@ -2259,6 +2286,9 @@ jobs:
         run: |
           set -euo pipefail
 
+          : "${RENDEZVOUS_SERVER:?Falta el servidor corporativo}"
+          : "${RS_PUB_KEY:?Falta la clave publica corporativa}"
+
           CONFIG=libs/hbb_common/src/config.rs
 
           sed -i "s|pub const RENDEZVOUS_SERVERS: .*;|pub const RENDEZVOUS_SERVERS: \&[\&str] = \&[\"${RENDEZVOUS_SERVER}\"];|" "$CONFIG"
@@ -2342,6 +2372,9 @@ jobs:
           RS_PUB_KEY: ${{ secrets.RS_PUB_KEY }}
         run: |
           set -euo pipefail
+
+          : "${RENDEZVOUS_SERVER:?Falta el servidor corporativo}"
+          : "${RS_PUB_KEY:?Falta la clave publica corporativa}"
 
           CONFIG=libs/hbb_common/src/config.rs
 

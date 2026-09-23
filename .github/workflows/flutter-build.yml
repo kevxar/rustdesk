@@ -135,6 +135,7 @@ jobs:
           : "${RS_PUB_KEY:?Falta la clave publica corporativa}"
 
           CONFIG=libs/hbb_common/src/config.rs
+          python3 -c 'from pathlib import Path; p=Path("libs/hbb_common/src/config.rs"); s=p.read_text(); old="RwLock::new(\"RustDesk\".to_owned())"; assert s.count(old)==1, "Revisar APP_NAME upstream"; p.write_text(s.replace(old,"RwLock::new(\"ElectroramSoporte\".to_owned())"))'
 
           sed -i "s|pub const RENDEZVOUS_SERVERS: .*;|pub const RENDEZVOUS_SERVERS: \&[\&str] = \&[\"${RENDEZVOUS_SERVER}\"];|" "$CONFIG"
           sed -i "s|pub const RS_PUB_KEY: .*;|pub const RS_PUB_KEY: \&str = \"${RS_PUB_KEY}\";|" "$CONFIG"
@@ -365,7 +366,7 @@ jobs:
           python3 ./generate.py -f ../../rustdesk/ -o . -e ../../rustdesk/rustdesk.exe
           popd
           mkdir -p ./SignOutput
-          mv ./target/release/rustdesk-portable-packer.exe ./SignOutput/rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}.exe
+          mv ./target/release/rustdesk-portable-packer.exe ./SignOutput/Electroram-Soporte-${{ env.VERSION }}-${{ matrix.job.arch }}.exe
 
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce # v2
@@ -382,8 +383,34 @@ jobs:
           $msiPlatform = if ('${{ matrix.job.arch }}' -eq 'aarch64') { 'ARM64' } else { 'x64' }
           msbuild msi.sln -p:Configuration=Release -p:Platform=$msiPlatform /p:TargetVersion=Windows10
           $msi = Get-ChildItem ./Package/bin/*/Release/en-us/Package.msi | Select-Object -First 1
-          mv $msi.FullName ../../SignOutput/rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}.msi
-          sha256sum ../../SignOutput/rustdesk-*.msi
+          mv $msi.FullName ../../SignOutput/Electroram-Soporte-${{ env.VERSION }}-${{ matrix.job.arch }}.msi
+          sha256sum ../../SignOutput/Electroram-Soporte-*.msi
+
+      - name: Empaquetar fuentes correspondientes y licencia
+        if: env.UPLOAD_ARTIFACT == 'true'
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import subprocess, zipfile
+          from pathlib import Path
+          files = subprocess.check_output(["git", "ls-files", "--recurse-submodules", "-z"]).decode().split("\0")
+          archive = "SignOutput/Electroram-Soporte-${{ env.VERSION }}-${{ matrix.job.arch }}-fuentes.zip"
+          with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as source:
+              for name in files:
+                  if name and Path(name).is_file():
+                      source.write(name, name)
+              source.writestr("COMPILACION-ELECTRORAM.txt", "Derivado de RustDesk, AGPL-3.0.\nCommit: ${{ github.sha }}\nRepositorio: https://github.com/${{ github.repository }}\nLas modificaciones de CI estan incluidas en estas fuentes.\n")
+          PY
+          cp LICENCE ./SignOutput/Electroram-Soporte-LICENCE.txt
+
+      - name: Publicar alias corporativo vigente y sus huellas
+        if: env.UPLOAD_ARTIFACT == 'true' && matrix.job.arch == 'x86_64'
+        shell: bash
+        run: |
+          cp "./SignOutput/Electroram-Soporte-${VERSION}-x86_64.exe" \
+            ./SignOutput/Electroram-Soporte-windows-x86_64.exe
+          sha256sum ./SignOutput/Electroram-Soporte-windows-x86_64.exe \
+            | awk '{print $1}' > ./SignOutput/Electroram-Soporte-windows-x86_64.exe.sha256
 
       - name: Sign rustdesk self-extracted file
         if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != '-2'
@@ -398,8 +425,11 @@ jobs:
           prerelease: true
           tag_name: ${{ env.TAG_NAME }}
           files: |
-            ./SignOutput/rustdesk-*.msi
-            ./SignOutput/rustdesk-*.exe
+            ./SignOutput/Electroram-Soporte-*.msi
+            ./SignOutput/Electroram-Soporte-*.exe
+            ./SignOutput/Electroram-Soporte-*.exe.sha256
+            ./SignOutput/Electroram-Soporte-*-fuentes.zip
+            ./SignOutput/Electroram-Soporte-LICENCE.txt
 
   # The fallback for the flutter version, we use Sciter for 32bit Windows.
   build-for-windows-sciter:
@@ -450,6 +480,7 @@ jobs:
           : "${RS_PUB_KEY:?Falta la clave publica corporativa}"
 
           CONFIG=libs/hbb_common/src/config.rs
+          python3 -c 'from pathlib import Path; p=Path("libs/hbb_common/src/config.rs"); s=p.read_text(); old="RwLock::new(\"RustDesk\".to_owned())"; assert s.count(old)==1, "Revisar APP_NAME upstream"; p.write_text(s.replace(old,"RwLock::new(\"ElectroramSoporte\".to_owned())"))'
 
           sed -i "s|pub const RENDEZVOUS_SERVERS: .*;|pub const RENDEZVOUS_SERVERS: \&[\&str] = \&[\"${RENDEZVOUS_SERVER}\"];|" "$CONFIG"
           sed -i "s|pub const RS_PUB_KEY: .*;|pub const RS_PUB_KEY: \&str = \"${RS_PUB_KEY}\";|" "$CONFIG"
@@ -562,7 +593,7 @@ jobs:
           python3 ./generate.py -f ../../Release/ -o . -e ../../Release/rustdesk.exe
           popd
           mkdir -p ./SignOutput
-          mv ./target/release/rustdesk-portable-packer.exe ./SignOutput/rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}-sciter.exe
+          mv ./target/release/rustdesk-portable-packer.exe ./SignOutput/Electroram-Soporte-${{ env.VERSION }}-${{ matrix.job.arch }}-sciter.exe
 
       - name: Sign rustdesk self-extracted file
         if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != '-2'
@@ -577,7 +608,7 @@ jobs:
           prerelease: true
           tag_name: ${{ env.TAG_NAME }}
           files: |
-            ./SignOutput/rustdesk-*.exe
+            ./SignOutput/Electroram-Soporte-*.exe
 
   build-rustdesk-ios:
     if: ${{ inputs.upload-artifact }}
@@ -627,6 +658,7 @@ jobs:
           : "${RS_PUB_KEY:?Falta la clave publica corporativa}"
 
           CONFIG=libs/hbb_common/src/config.rs
+          python3 -c 'from pathlib import Path; p=Path("libs/hbb_common/src/config.rs"); s=p.read_text(); old="RwLock::new(\"RustDesk\".to_owned())"; assert s.count(old)==1, "Revisar APP_NAME upstream"; p.write_text(s.replace(old,"RwLock::new(\"ElectroramSoporte\".to_owned())"))'
 
           sed -i "s|pub const RENDEZVOUS_SERVERS: .*;|pub const RENDEZVOUS_SERVERS: \&[\&str] = \&[\"${RENDEZVOUS_SERVER}\"];|" "$CONFIG"
           sed -i "s|pub const RS_PUB_KEY: .*;|pub const RS_PUB_KEY: \&str = \"${RS_PUB_KEY}\";|" "$CONFIG"
@@ -778,6 +810,7 @@ jobs:
           : "${RS_PUB_KEY:?Falta la clave publica corporativa}"
 
           CONFIG=libs/hbb_common/src/config.rs
+          python3 -c 'from pathlib import Path; p=Path("libs/hbb_common/src/config.rs"); s=p.read_text(); old="RwLock::new(\"RustDesk\".to_owned())"; assert s.count(old)==1, "Revisar APP_NAME upstream"; p.write_text(s.replace(old,"RwLock::new(\"ElectroramSoporte\".to_owned())"))'
 
           sed -i "s|pub const RENDEZVOUS_SERVERS: .*;|pub const RENDEZVOUS_SERVERS: \&[\&str] = \&[\"${RENDEZVOUS_SERVER}\"];|" "$CONFIG"
           sed -i "s|pub const RS_PUB_KEY: .*;|pub const RS_PUB_KEY: \&str = \"${RS_PUB_KEY}\";|" "$CONFIG"
@@ -1117,6 +1150,7 @@ jobs:
           : "${RS_PUB_KEY:?Falta la clave publica corporativa}"
 
           CONFIG=libs/hbb_common/src/config.rs
+          python3 -c 'from pathlib import Path; p=Path("libs/hbb_common/src/config.rs"); s=p.read_text(); old="RwLock::new(\"RustDesk\".to_owned())"; assert s.count(old)==1, "Revisar APP_NAME upstream"; p.write_text(s.replace(old,"RwLock::new(\"ElectroramSoporte\".to_owned())"))'
 
           sed -i "s|pub const RENDEZVOUS_SERVERS: .*;|pub const RENDEZVOUS_SERVERS: \&[\&str] = \&[\"${RENDEZVOUS_SERVER}\"];|" "$CONFIG"
           sed -i "s|pub const RS_PUB_KEY: .*;|pub const RS_PUB_KEY: \&str = \"${RS_PUB_KEY}\";|" "$CONFIG"
@@ -1415,6 +1449,7 @@ jobs:
           : "${RS_PUB_KEY:?Falta la clave publica corporativa}"
 
           CONFIG=libs/hbb_common/src/config.rs
+          python3 -c 'from pathlib import Path; p=Path("libs/hbb_common/src/config.rs"); s=p.read_text(); old="RwLock::new(\"RustDesk\".to_owned())"; assert s.count(old)==1, "Revisar APP_NAME upstream"; p.write_text(s.replace(old,"RwLock::new(\"ElectroramSoporte\".to_owned())"))'
 
           sed -i "s|pub const RENDEZVOUS_SERVERS: .*;|pub const RENDEZVOUS_SERVERS: \&[\&str] = \&[\"${RENDEZVOUS_SERVER}\"];|" "$CONFIG"
           sed -i "s|pub const RS_PUB_KEY: .*;|pub const RS_PUB_KEY: \&str = \"${RS_PUB_KEY}\";|" "$CONFIG"
@@ -1606,6 +1641,7 @@ jobs:
           : "${RS_PUB_KEY:?Falta la clave publica corporativa}"
 
           CONFIG=libs/hbb_common/src/config.rs
+          python3 -c 'from pathlib import Path; p=Path("libs/hbb_common/src/config.rs"); s=p.read_text(); old="RwLock::new(\"RustDesk\".to_owned())"; assert s.count(old)==1, "Revisar APP_NAME upstream"; p.write_text(s.replace(old,"RwLock::new(\"ElectroramSoporte\".to_owned())"))'
 
           sed -i "s|pub const RENDEZVOUS_SERVERS: .*;|pub const RENDEZVOUS_SERVERS: \&[\&str] = \&[\"${RENDEZVOUS_SERVER}\"];|" "$CONFIG"
           sed -i "s|pub const RS_PUB_KEY: .*;|pub const RS_PUB_KEY: \&str = \"${RS_PUB_KEY}\";|" "$CONFIG"
@@ -1962,6 +1998,7 @@ jobs:
           : "${RS_PUB_KEY:?Falta la clave publica corporativa}"
 
           CONFIG=libs/hbb_common/src/config.rs
+          python3 -c 'from pathlib import Path; p=Path("libs/hbb_common/src/config.rs"); s=p.read_text(); old="RwLock::new(\"RustDesk\".to_owned())"; assert s.count(old)==1, "Revisar APP_NAME upstream"; p.write_text(s.replace(old,"RwLock::new(\"ElectroramSoporte\".to_owned())"))'
 
           sed -i "s|pub const RENDEZVOUS_SERVERS: .*;|pub const RENDEZVOUS_SERVERS: \&[\&str] = \&[\"${RENDEZVOUS_SERVER}\"];|" "$CONFIG"
           sed -i "s|pub const RS_PUB_KEY: .*;|pub const RS_PUB_KEY: \&str = \"${RS_PUB_KEY}\";|" "$CONFIG"
@@ -2190,6 +2227,7 @@ jobs:
           : "${RS_PUB_KEY:?Falta la clave publica corporativa}"
 
           CONFIG=libs/hbb_common/src/config.rs
+          python3 -c 'from pathlib import Path; p=Path("libs/hbb_common/src/config.rs"); s=p.read_text(); old="RwLock::new(\"RustDesk\".to_owned())"; assert s.count(old)==1, "Revisar APP_NAME upstream"; p.write_text(s.replace(old,"RwLock::new(\"ElectroramSoporte\".to_owned())"))'
 
           sed -i "s|pub const RENDEZVOUS_SERVERS: .*;|pub const RENDEZVOUS_SERVERS: \&[\&str] = \&[\"${RENDEZVOUS_SERVER}\"];|" "$CONFIG"
           sed -i "s|pub const RS_PUB_KEY: .*;|pub const RS_PUB_KEY: \&str = \"${RS_PUB_KEY}\";|" "$CONFIG"
@@ -2290,6 +2328,7 @@ jobs:
           : "${RS_PUB_KEY:?Falta la clave publica corporativa}"
 
           CONFIG=libs/hbb_common/src/config.rs
+          python3 -c 'from pathlib import Path; p=Path("libs/hbb_common/src/config.rs"); s=p.read_text(); old="RwLock::new(\"RustDesk\".to_owned())"; assert s.count(old)==1, "Revisar APP_NAME upstream"; p.write_text(s.replace(old,"RwLock::new(\"ElectroramSoporte\".to_owned())"))'
 
           sed -i "s|pub const RENDEZVOUS_SERVERS: .*;|pub const RENDEZVOUS_SERVERS: \&[\&str] = \&[\"${RENDEZVOUS_SERVER}\"];|" "$CONFIG"
           sed -i "s|pub const RS_PUB_KEY: .*;|pub const RS_PUB_KEY: \&str = \"${RS_PUB_KEY}\";|" "$CONFIG"
@@ -2377,6 +2416,7 @@ jobs:
           : "${RS_PUB_KEY:?Falta la clave publica corporativa}"
 
           CONFIG=libs/hbb_common/src/config.rs
+          python3 -c 'from pathlib import Path; p=Path("libs/hbb_common/src/config.rs"); s=p.read_text(); old="RwLock::new(\"RustDesk\".to_owned())"; assert s.count(old)==1, "Revisar APP_NAME upstream"; p.write_text(s.replace(old,"RwLock::new(\"ElectroramSoporte\".to_owned())"))'
 
           sed -i "s|pub const RENDEZVOUS_SERVERS: .*;|pub const RENDEZVOUS_SERVERS: \&[\&str] = \&[\"${RENDEZVOUS_SERVER}\"];|" "$CONFIG"
           sed -i "s|pub const RS_PUB_KEY: .*;|pub const RS_PUB_KEY: \&str = \"${RS_PUB_KEY}\";|" "$CONFIG"

@@ -435,8 +435,9 @@ jobs:
   build-for-windows-sciter:
     name: ${{ matrix.job.target }} (${{ matrix.job.os }})
     runs-on: ${{ matrix.job.os }}
-    # Temporarily disable this action due to additional test is needed.
-    # if: false
+    # El cliente corporativo soportado es Windows x86_64 Flutter. El fallback
+    # i686 usa un toolchain obsoleto y no debe volver roja la publicación.
+    if: false
     strategy:
       fail-fast: false
       matrix:

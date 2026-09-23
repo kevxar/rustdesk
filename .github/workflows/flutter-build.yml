@@ -356,6 +356,11 @@ jobs:
           pip3 install requests argparse
           BASE_URL=${{ env.SIGN_BASE_URL }} SECRET_KEY=${{ secrets.SIGN_SECRET_KEY }} python3 res/job.py sign_files ./rustdesk/
 
+      - name: Aplicar nombre ejecutable corporativo
+        if: env.UPLOAD_ARTIFACT == 'true'
+        shell: bash
+        run: mv ./rustdesk/rustdesk.exe ./rustdesk/ElectroramSoporte.exe
+
       - name: Build self-extracted executable
         shell: bash
         if: env.UPLOAD_ARTIFACT == 'true'
@@ -363,7 +368,7 @@ jobs:
           sed -i '/dpiAware/d' res/manifest.xml
           pushd ./libs/portable
           pip3 install -r requirements.txt
-          python3 ./generate.py -f ../../rustdesk/ -o . -e ../../rustdesk/rustdesk.exe
+          python3 ./generate.py -f ../../rustdesk/ -o . -e ../../rustdesk/ElectroramSoporte.exe
           popd
           mkdir -p ./SignOutput
           mv ./target/release/rustdesk-portable-packer.exe ./SignOutput/Electroram-Soporte-${{ env.VERSION }}-${{ matrix.job.arch }}.exe

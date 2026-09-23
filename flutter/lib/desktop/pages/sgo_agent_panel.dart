@@ -268,13 +268,43 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
     return base64Encode(utf16le);
   }
 
+  bool _isSynchronized() {
+    if (_state?['latido_ok'] != true) return false;
+    final lastHeartbeat = DateTime.tryParse(
+      _state?['ultimo_latido_en']?.toString() ?? '',
+    );
+    if (lastHeartbeat == null) return false;
+    final configuredInterval = int.tryParse(
+          _state?['intervalo_minutos']?.toString() ?? '',
+        ) ??
+        60;
+    final tolerance = Duration(
+      minutes: configuredInterval.clamp(5, 1440).toInt() * 3 + 5,
+    );
+    return DateTime.now().difference(lastHeartbeat.toLocal()) <= tolerance;
+  }
+
+  String _lastSynchronization() {
+    final lastHeartbeat = DateTime.tryParse(
+      _state?['ultimo_latido_en']?.toString() ?? '',
+    );
+    if (lastHeartbeat == null) return 'Sin sincronización registrada';
+    final local = lastHeartbeat.toLocal();
+    String twoDigits(int value) => value.toString().padLeft(2, '0');
+    return 'Última sincronización: '
+        '${twoDigits(local.day)}/${twoDigits(local.month)}/${local.year} '
+        '${twoDigits(local.hour)}:${twoDigits(local.minute)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final installed = _state != null;
-    final synchronized = _state?['latido_ok'] == true;
+    final synchronized = _isSynchronized();
     final agentVersion = _state?['agente_version']?.toString() ?? '—';
     final availableVersion =
         _state?['agente_version_disponible']?.toString() ?? agentVersion;
+    final equipmentName = _state?['equipo']?.toString().trim() ?? '';
+    final rustdeskId = _state?['rustdesk_id']?.toString().trim() ?? '';
     final targetName = (_state?['hostname_objetivo'] as String?)?.trim();
     final title = !installed
         ? 'Agente SGO no instalado'
@@ -315,6 +345,19 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
             'Agente v$agentVersion/$availableVersion',
             style: Theme.of(context).textTheme.bodySmall,
           ),
+          if (installed)
+            Text(
+              [
+                if (equipmentName.isNotEmpty) equipmentName,
+                if (rustdeskId.isNotEmpty) 'ID $rustdeskId',
+              ].join(' · '),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          if (installed)
+            Text(
+              _lastSynchronization(),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           if (targetName != null && targetName.isNotEmpty)
             Text('Nuevo nombre pendiente: $targetName',
                 style: Theme.of(context).textTheme.bodySmall),

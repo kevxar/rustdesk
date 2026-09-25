@@ -169,7 +169,7 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
       final hashResult = await Process.run('powershell.exe', [
         '-NoProfile',
         '-Command',
-        '(Get-FileHash -LiteralPath $args[0] -Algorithm SHA256).Hash',
+        '(Get-FileHash -LiteralPath \$args[0] -Algorithm SHA256).Hash',
         installer.path,
       ]);
       final actualHash = '${hashResult.stdout}'.trim();

@@ -2484,6 +2484,15 @@ class _AboutState extends State<_About> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Center(
+                child: Image.asset(
+                  Theme.of(context).brightness == Brightness.dark
+                      ? 'assets/logo_dark.png'
+                      : 'assets/logo_light.png',
+                  height: 54,
+                  fit: BoxFit.contain,
+                ),
+              ).marginSymmetric(vertical: 12.0),
               const SizedBox(
                 height: 8.0,
               ),
@@ -2528,7 +2537,10 @@ class _AboutState extends State<_About> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Copyright © ${DateTime.now().toString().substring(0, 4)} Purslane Tech Pte. Ltd.\n$license',
+                            'Copyright © ${DateTime.now().toString().substring(0, 4)} Purslane Tech Pte. Ltd. y colaboradores.\n'
+                            'Modificaciones corporativas © ${DateTime.now().toString().substring(0, 4)} '
+                            'Electroram Telecomunicaciones · Kevin Araya Reygada.\n'
+                            'Basado en RustDesk y distribuido bajo GNU AGPL v3.\n$license',
                             style: const TextStyle(color: Colors.white),
                           ),
                           Text(

@@ -23,6 +23,7 @@ class SgoAgentPanel extends StatefulWidget {
 
 class _SgoAgentPanelState extends State<SgoAgentPanel> {
   static const _statePath = r'C:\ProgramData\SGO-ERAM\estado.json';
+  static const _agentPath = r'C:\Program Files\SGO-ERAM\agente.ps1';
   static const _taskName = 'SGO-ERAM Agente';
   static const _defaultSgoUrl = 'https://sgo.electroram.cl';
   static const _clientUrl =
@@ -34,6 +35,7 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
   String? _error;
   bool _busy = false;
   bool _agentTaskInstalled = false;
+  bool _agentTaskNeedsRepair = false;
 
   @override
   void initState() {
@@ -63,10 +65,17 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
           ? jsonDecode(results[0] as String) as Map<String, dynamic>
           : null;
       final taskResult = results[1] as ProcessResult;
+      final taskOutput = '${taskResult.stdout}\n${taskResult.stderr}'.toLowerCase();
+      final taskAccessDenied = taskResult.exitCode != 0 &&
+          (taskOutput.contains('access is denied') ||
+              taskOutput.contains('acceso denegado'));
+      final legacyAgentPresent = state != null && File(_agentPath).existsSync();
       if (!mounted) return;
       setState(() {
         _state = state;
-        _agentTaskInstalled = taskResult.exitCode == 0;
+        _agentTaskInstalled =
+            taskResult.exitCode == 0 || (taskAccessDenied && legacyAgentPresent);
+        _agentTaskNeedsRepair = taskAccessDenied && legacyAgentPresent;
         _error = null;
       });
     } catch (_) {
@@ -159,35 +168,7 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
       final installer = File(
         '${Directory.systemTemp.path}\\Electroram-Soporte-$stamp.exe',
       );
-      final responses = await Future.wait([
-        http.get(Uri.parse(_clientUrl)).timeout(const Duration(minutes: 5)),
-        http
-            .get(Uri.parse(_clientHashUrl))
-            .timeout(const Duration(seconds: 45)),
-      ]);
-      if (responses.any((response) => response.statusCode != 200)) {
-        throw Exception('No se pudo descargar la actualización corporativa.');
-      }
-      final expectedHash = utf8
-          .decode(responses[1].bodyBytes)
-          .trim()
-          .split(RegExp(r'\s+'))
-          .first;
-      if (!RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(expectedHash)) {
-        throw Exception('La versión publicada no tiene una huella válida.');
-      }
-      await installer.writeAsBytes(responses[0].bodyBytes, flush: true);
-      final hashResult = await Process.run('powershell.exe', [
-        '-NoProfile',
-        '-Command',
-        '(Get-FileHash -LiteralPath \$args[0] -Algorithm SHA256).Hash',
-        installer.path,
-      ]);
-      final actualHash = '${hashResult.stdout}'.trim();
-      if (hashResult.exitCode != 0 ||
-          actualHash.toLowerCase() != expectedHash.toLowerCase()) {
-        throw Exception('La descarga no coincide con su SHA-256.');
-      }
+      await _downloadVerifiedClient(installer);
 
       final escapedPath = installer.path.replaceAll("'", "''");
       final command =
@@ -207,6 +188,76 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// Descarga primero la huella y luego el binario para evitar mezclar dos
+  /// versiones mientras GitHub reemplaza el alias estable de la release.
+  /// Cada intento usa una clave de caché propia porque ambos recursos pueden
+  /// propagarse por nodos CDN distintos durante algunos segundos.
+  Future<void> _downloadVerifiedClient(File installer) async {
+    const attempts = 3;
+    final client = http.Client();
+    try {
+      for (var attempt = 1; attempt <= attempts; attempt++) {
+        final cacheKey = DateTime.now().microsecondsSinceEpoch.toString();
+        const headers = {
+          'Cache-Control': 'no-cache, no-store',
+          'Pragma': 'no-cache',
+        };
+        final hashUri = Uri.parse(_clientHashUrl).replace(
+          queryParameters: {'electroram_cache': cacheKey},
+        );
+        final clientUri = Uri.parse(_clientUrl).replace(
+          queryParameters: {'electroram_cache': cacheKey},
+        );
+        final hashResponse = await client
+            .get(hashUri, headers: headers)
+            .timeout(const Duration(seconds: 45));
+        if (hashResponse.statusCode != 200) {
+          throw Exception('No se pudo descargar la huella corporativa.');
+        }
+        final expectedHash = utf8
+            .decode(hashResponse.bodyBytes)
+            .trim()
+            .split(RegExp(r'\s+'))
+            .first;
+        if (!RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(expectedHash)) {
+          throw Exception('La versión publicada no tiene una huella válida.');
+        }
+
+        final clientResponse = await client
+            .get(clientUri, headers: headers)
+            .timeout(const Duration(minutes: 5));
+        if (clientResponse.statusCode != 200) {
+          throw Exception('No se pudo descargar la actualización corporativa.');
+        }
+        await installer.writeAsBytes(clientResponse.bodyBytes, flush: true);
+        final hashResult = await Process.run('powershell.exe', [
+          '-NoProfile',
+          '-Command',
+          '(Get-FileHash -LiteralPath \$args[0] -Algorithm SHA256).Hash',
+          installer.path,
+        ]);
+        final actualHash = '${hashResult.stdout}'.trim();
+        if (hashResult.exitCode == 0 &&
+            actualHash.toLowerCase() == expectedHash.toLowerCase()) {
+          return;
+        }
+        try {
+          await installer.delete();
+        } catch (_) {
+          // El siguiente intento sobrescribe el archivo si Windows lo retuvo.
+        }
+        if (attempt < attempts) {
+          await Future<void>.delayed(Duration(seconds: attempt * 2));
+        }
+      }
+    } finally {
+      client.close();
+    }
+    throw Exception(
+      'GitHub aún está propagando la nueva versión. Intenta nuevamente en un minuto.',
+    );
   }
 
   Future<void> _installAgent(String baseUrl, String token) async {
@@ -321,6 +372,8 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
     final targetName = (_state?['hostname_objetivo'] as String?)?.trim();
     final title = !installed
         ? 'Agente SGO no instalado'
+        : _agentTaskNeedsRepair
+            ? 'Agente SGO requiere reparación'
         : synchronized
             ? 'Sincronizado con SGO'
             : 'SGO requiere atención';
@@ -374,7 +427,12 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
               _lastSynchronization(),
               style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12),
             ),
-          if (hasState && !installed)
+          if (_agentTaskNeedsRepair)
+            const Text(
+              'La instalación anterior no permite consultar ni ejecutar la tarea. Usa Reparar/actualizar para renovar sus permisos.',
+              style: TextStyle(color: Color(0xFFFFC66D), fontSize: 12),
+            )
+          else if (hasState && !installed)
             const Text(
               'Se encontró un estado anterior, pero la tarea del agente no está registrada.',
               style: TextStyle(color: Color(0xFFFFC66D), fontSize: 12),
@@ -392,7 +450,7 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
             spacing: 6,
             runSpacing: 6,
             children: [
-              if (installed)
+              if (installed && !_agentTaskNeedsRepair)
                 OutlinedButton.icon(
                   onPressed: _busy ? null : _synchronize,
                   style: OutlinedButton.styleFrom(

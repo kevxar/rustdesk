@@ -33,6 +33,7 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
   Map<String, dynamic>? _state;
   String? _error;
   bool _busy = false;
+  bool _agentTaskInstalled = false;
 
   @override
   void initState() {
@@ -50,12 +51,22 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
   Future<void> _refresh() async {
     try {
       final file = File(_statePath);
-      final state = file.existsSync()
-          ? jsonDecode(await file.readAsString()) as Map<String, dynamic>
+      final results = await Future.wait<dynamic>([
+        if (file.existsSync()) file.readAsString() else Future.value(null),
+        Process.run(
+          'schtasks.exe',
+          const ['/Query', '/TN', _taskName],
+          runInShell: false,
+        ),
+      ]);
+      final state = results[0] is String
+          ? jsonDecode(results[0] as String) as Map<String, dynamic>
           : null;
+      final taskResult = results[1] as ProcessResult;
       if (!mounted) return;
       setState(() {
         _state = state;
+        _agentTaskInstalled = taskResult.exitCode == 0;
         _error = null;
       });
     } catch (_) {
@@ -269,6 +280,7 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
   }
 
   bool _isSynchronized() {
+    if (!_agentTaskInstalled) return false;
     if (_state?['latido_ok'] != true) return false;
     final lastHeartbeat = DateTime.tryParse(
       _state?['ultimo_latido_en']?.toString() ?? '',
@@ -298,7 +310,8 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final installed = _state != null;
+    final hasState = _state != null;
+    final installed = _agentTaskInstalled;
     final synchronized = _isSynchronized();
     final agentVersion = _state?['agente_version']?.toString() ?? '—';
     final availableVersion =
@@ -316,8 +329,8 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
       margin: const EdgeInsets.fromLTRB(8, 10, 8, 2),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF4F7FB),
-        border: Border.all(color: const Color(0xFF294A93).withOpacity(.35)),
+        color: const Color(0xFF162032),
+        border: Border.all(color: const Color(0xFF4B77BE).withOpacity(.65)),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
@@ -330,37 +343,48 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
                   : Icons.settings_remote,
               color: installed && synchronized
                   ? Colors.green.shade700
-                  : const Color(0xFF294A93),
+                  : const Color(0xFF7DB7FF),
               size: 20,
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(title,
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  )),
             ),
           ]),
           const SizedBox(height: 8),
           Text(
             'Cliente v${version.isEmpty ? '1.4.9' : version} · '
             'Agente v$agentVersion/$availableVersion',
-            style: Theme.of(context).textTheme.bodySmall,
+            style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12),
           ),
-          if (installed)
+          if (hasState)
             Text(
               [
                 if (equipmentName.isNotEmpty) equipmentName,
                 if (rustdeskId.isNotEmpty) 'ID $rustdeskId',
               ].join(' · '),
-              style: Theme.of(context).textTheme.bodySmall,
+              style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12),
             ),
-          if (installed)
+          if (hasState)
             Text(
               _lastSynchronization(),
-              style: Theme.of(context).textTheme.bodySmall,
+              style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12),
+            ),
+          if (hasState && !installed)
+            const Text(
+              'Se encontró un estado anterior, pero la tarea del agente no está registrada.',
+              style: TextStyle(color: Color(0xFFFFC66D), fontSize: 12),
             ),
           if (targetName != null && targetName.isNotEmpty)
             Text('Nuevo nombre pendiente: $targetName',
-                style: Theme.of(context).textTheme.bodySmall),
+                style: const TextStyle(
+                  color: Color(0xFFFFC66D),
+                  fontSize: 12,
+                )),
           if (_error != null)
             Text(_error!, style: TextStyle(color: Colors.red.shade700)),
           const SizedBox(height: 10),
@@ -371,15 +395,25 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
               if (installed)
                 OutlinedButton.icon(
                   onPressed: _busy ? null : _synchronize,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFB7D7FF),
+                    side: const BorderSide(color: Color(0xFF4B77BE)),
+                  ),
                   icon: const Icon(Icons.sync, size: 16),
                   label: const Text('Sincronizar'),
                 ),
               TextButton(
                 onPressed: _busy ? null : _showInstaller,
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF7DB7FF),
+                ),
                 child: Text(installed ? 'Reparar/actualizar' : 'Instalar agente'),
               ),
               TextButton(
                 onPressed: _busy ? null : _updateClient,
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF7DB7FF),
+                ),
                 child: const Text('Actualizar cliente'),
               ),
             ],

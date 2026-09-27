@@ -34,6 +34,7 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
   Map<String, dynamic>? _state;
   String? _error;
   bool _busy = false;
+  String? _operationStatus;
   bool _agentTaskInstalled = false;
   bool _agentTaskNeedsRepair = false;
 
@@ -85,7 +86,11 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
   }
 
   Future<void> _synchronize() async {
-    setState(() => _busy = true);
+    final previousRevision = await _stateRevision();
+    setState(() {
+      _busy = true;
+      _operationStatus = 'Sincronizando con SGO...';
+    });
     try {
       final result = await Process.run(
         'schtasks.exe',
@@ -95,16 +100,23 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
       if (result.exitCode != 0) {
         throw Exception('Windows no pudo iniciar la tarea del agente.');
       }
-      _message('Sincronización solicitada.');
-      await Future<void>.delayed(const Duration(seconds: 2));
+      final state = await _waitForStateUpdate(previousRevision);
+      if (state['latido_ok'] != true) {
+        throw Exception(_stateError(state));
+      }
       await _refresh();
+      _message('Sincronizacion completada.');
     } catch (error) {
-      _message('$error', error: true);
+      _message(_errorText(error), error: true);
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _operationStatus = null;
+        });
+      }
     }
   }
-
   Future<void> _showInstaller() async {
     final urlController = TextEditingController(
       text: (_state?['sgo_url'] as String?) ?? _defaultSgoUrl,
@@ -162,7 +174,14 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
   }
 
   Future<void> _updateClient() async {
-    setState(() => _busy = true);
+    final executable = File(Platform.resolvedExecutable);
+    final previousModified = executable.existsSync()
+        ? await executable.lastModified()
+        : DateTime.fromMillisecondsSinceEpoch(0);
+    setState(() {
+      _busy = true;
+      _operationStatus = 'Descargando y verificando la actualizacion...';
+    });
     try {
       final stamp = DateTime.now().millisecondsSinceEpoch;
       final installer = File(
@@ -170,23 +189,26 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
       );
       await _downloadVerifiedClient(installer);
 
-      final escapedPath = installer.path.replaceAll("'", "''");
-      final command =
-          "Start-Process -FilePath '$escapedPath' -ArgumentList '--silent-install' -Verb RunAs";
-      final encoded = _encodePowerShell(command);
-      final process = await Process.start(
-        'powershell.exe',
-        ['-NoProfile', '-EncodedCommand', encoded],
-        runInShell: false,
-      );
-      if (await process.exitCode != 0) {
-        throw Exception('Windows rechazó la actualización.');
+      if (mounted) {
+        setState(() => _operationStatus =
+            'Instalando la actualizacion. Confirma el aviso de Windows...');
       }
-      _message('Actualización iniciada. Acepta el aviso de Windows.');
+      await _runElevated(
+        installer.path,
+        const ['--silent-install'],
+        timeout: const Duration(minutes: 4),
+      );
+      await _waitForClientUpdate(executable, previousModified);
+      _message('Cliente actualizado correctamente.');
     } catch (error) {
-      _message('$error', error: true);
+      _message(_errorText(error), error: true);
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _operationStatus = null;
+        });
+      }
     }
   }
 
@@ -263,15 +285,19 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
   Future<void> _installAgent(String baseUrl, String token) async {
     final uri = Uri.tryParse(baseUrl);
     if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
-      _message('SGO debe usar una dirección HTTPS válida.', error: true);
+      _message('SGO debe usar una direccion HTTPS valida.', error: true);
       return;
     }
     if (!RegExp(r'^[a-f0-9]{64}$').hasMatch(token)) {
-      _message('El código de enrolamiento no es válido.', error: true);
+      _message('El codigo de enrolamiento no es valido.', error: true);
       return;
     }
 
-    setState(() => _busy = true);
+    final previousRevision = await _stateRevision();
+    setState(() {
+      _busy = true;
+      _operationStatus = 'Instalando o reparando el agente SGO...';
+    });
     try {
       final endpoint = uri.replace(
         path: '/api/ti/equipos/instalador',
@@ -282,38 +308,127 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
           .get(endpoint, headers: {'X-Enrollment-Token': token})
           .timeout(const Duration(seconds: 45));
       if (response.statusCode != 200) {
-        throw Exception('SGO rechazó o expiró la autorización.');
+        throw Exception('SGO rechazo o expiro la autorizacion.');
       }
 
       final script = File(
         '${Directory.systemTemp.path}\\electroram-sgo-${DateTime.now().millisecondsSinceEpoch}.ps1',
       );
       await script.writeAsBytes(response.bodyBytes, flush: true);
-
-      // La ruta se codifica como UTF-16LE para no interpolar datos del usuario
-      // dentro de una línea de comandos de PowerShell.
-      final escapedPath = script.path.replaceAll("'", "''");
-      final command =
-          "Start-Process powershell.exe -Verb RunAs -ArgumentList @('-NoProfile','-ExecutionPolicy','RemoteSigned','-File','$escapedPath')";
-      final encoded = _encodePowerShell(command);
-      final process = await Process.start(
+      final escapedScript = script.path.replaceAll("'", "''");
+      final elevatedScript =
+          "Set-ExecutionPolicy -Scope Process RemoteSigned -Force; & '$escapedScript'";
+      await _runElevated(
         'powershell.exe',
-        ['-NoProfile', '-EncodedCommand', encoded],
-        runInShell: false,
+        ['-NoProfile', '-EncodedCommand', _encodePowerShell(elevatedScript)],
+        timeout: const Duration(minutes: 6),
       );
-      final exitCode = await process.exitCode;
-      if (exitCode != 0) {
-        throw Exception(
-          'La elevación fue cancelada o Windows rechazó la instalación.',
-        );
+      final state = await _waitForStateUpdate(previousRevision);
+      if (state['latido_ok'] != true) {
+        throw Exception(_stateError(state));
       }
-      _message('Instalación iniciada. Acepta el aviso de Windows.');
+      await _refresh();
+      _message('Agente SGO instalado y sincronizado correctamente.');
     } catch (error) {
-      _message('$error', error: true);
+      _message(_errorText(error), error: true);
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _operationStatus = null;
+        });
+      }
     }
   }
+
+  /// Ejecuta el programa elevado y espera su codigo de salida real.
+  Future<void> _runElevated(
+    String executable,
+    List<String> arguments, {
+    required Duration timeout,
+  }) async {
+    String quote(String value) => "'${value.replaceAll("'", "''")}'";
+    final argumentList = arguments.map(quote).join(',');
+    final command =
+        r'$ErrorActionPreference = "Stop"; ' +
+        r'$process = Start-Process ' +
+        '-FilePath ${quote(executable)} -ArgumentList @($argumentList) ' +
+        r'-Verb RunAs -PassThru -Wait; exit $process.ExitCode';
+    final result = await Process.run(
+      'powershell.exe',
+      ['-NoProfile', '-EncodedCommand', _encodePowerShell(command)],
+      runInShell: false,
+    ).timeout(timeout);
+    if (result.exitCode != 0) {
+      throw Exception(
+        'La operacion fue cancelada, excedio el tiempo permitido o Windows informo un error.',
+      );
+    }
+  }
+
+  /// Espera una escritura nueva del agente; iniciar la tarea no basta para
+  /// confirmar que SGO recibio el latido.
+  Future<Map<String, dynamic>> _waitForStateUpdate(
+    String? previousRevision,
+  ) async {
+    final deadline = DateTime.now().add(const Duration(seconds: 75));
+    while (DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(seconds: 2));
+      final state = await _readState();
+      final revision = await _stateRevision(state: state);
+      if (state != null && revision != null && revision != previousRevision) {
+        return state;
+      }
+    }
+    throw Exception(
+      'El agente no publico una sincronizacion nueva. Usa Reparar/actualizar para reinstalarlo y vuelve a intentarlo.',
+    );
+  }
+
+  Future<Map<String, dynamic>?> _readState() async {
+    final file = File(_statePath);
+    if (!file.existsSync()) return null;
+    try {
+      return jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String?> _stateRevision({Map<String, dynamic>? state}) async {
+    final current = state ?? await _readState();
+    if (current == null) return null;
+    final published = current['actualizado_en']?.toString();
+    if (published != null && published.isNotEmpty) return published;
+    return File(_statePath).lastModifiedSync().toIso8601String();
+  }
+
+  String _stateError(Map<String, dynamic> state) {
+    final detail = state['ultimo_error'] ?? state['error'];
+    return detail?.toString().trim().isNotEmpty == true
+        ? 'SGO rechazo la sincronizacion: $detail'
+        : 'El agente termino sin confirmar la sincronizacion con SGO.';
+  }
+
+  Future<void> _waitForClientUpdate(
+    File executable,
+    DateTime previousModified,
+  ) async {
+    final deadline = DateTime.now().add(const Duration(seconds: 45));
+    while (DateTime.now().isBefore(deadline)) {
+      if (executable.existsSync() &&
+          (await executable.lastModified()).isAfter(previousModified)) {
+        return;
+      }
+      await Future<void>.delayed(const Duration(seconds: 2));
+    }
+    throw Exception(
+      'El instalador finalizo, pero no se pudo comprobar que el cliente quedara actualizado.',
+    );
+  }
+
+  String _errorText(Object error) =>
+      error.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
 
   void _message(String message, {bool error = false}) {
     if (!mounted) return;
@@ -477,6 +592,13 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
             ],
           ),
           if (_busy) const LinearProgressIndicator(),
+          if (_operationStatus != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              _operationStatus!,
+              style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12),
+            ),
+          ],
         ],
       ),
     );

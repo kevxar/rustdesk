@@ -24,6 +24,7 @@ class SgoAgentPanel extends StatefulWidget {
 class _SgoAgentPanelState extends State<SgoAgentPanel> {
   static const _statePath = r'C:\ProgramData\SGO-ERAM\estado.json';
   static const _agentPath = r'C:\Program Files\SGO-ERAM\agente.ps1';
+  static const _trayPath = r'C:\ProgramData\SGO-ERAM\bandeja.ps1';
   static const _taskName = 'SGO-ERAM Agente';
   static const _defaultSgoUrl = 'https://sgo.electroram.cl';
   static const _clientUrl =
@@ -209,6 +210,37 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
           _operationStatus = null;
         });
       }
+    }
+  }
+
+  /// Abre el detalle del agente en la sesión del usuario. Si la bandeja ya
+  /// está activa, la segunda ejecución le envía una señal y termina.
+  Future<void> _openAgentStatus() async {
+    if (!File(_trayPath).existsSync()) {
+      _message(
+        'La interfaz del agente no está instalada. Usa Reparar/actualizar.',
+        error: true,
+      );
+      return;
+    }
+    try {
+      await Process.start(
+        'powershell.exe',
+        const [
+          '-NoProfile',
+          '-STA',
+          '-ExecutionPolicy',
+          'RemoteSigned',
+          '-WindowStyle',
+          'Hidden',
+          '-File',
+          _trayPath,
+          '-Mostrar',
+        ],
+        runInShell: false,
+      );
+    } catch (error) {
+      _message('No se pudo abrir el estado SGO.', error: true);
     }
   }
 
@@ -574,6 +606,16 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
                   ),
                   icon: const Icon(Icons.sync, size: 16),
                   label: const Text('Sincronizar'),
+                ),
+              if (installed)
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : _openAgentStatus,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFB7D7FF),
+                    side: const BorderSide(color: Color(0xFF4B77BE)),
+                  ),
+                  icon: const Icon(Icons.monitor_heart_outlined, size: 16),
+                  label: const Text('Ver estado SGO'),
                 ),
               TextButton(
                 onPressed: _busy ? null : _showInstaller,

@@ -23,6 +23,7 @@ import 'package:provider/provider.dart';
 import 'package:pull_down_button/pull_down_button.dart';
 
 import '../../common.dart';
+import '../../desktop/pages/sgo_directory.dart';
 import '../../models/platform_model.dart';
 
 class PeerTabPage extends StatefulWidget {
@@ -53,14 +54,14 @@ class _PeerTabPageState extends State<PeerTabPage>
     _TabEntry(DiscoveredPeersView(
       menuPadding: _menuPadding(),
     )),
-    _TabEntry(
+    isDesktop ? _TabEntry(const SgoDirectory()) : _TabEntry(
         AddressBook(
           menuPadding: _menuPadding(),
         ),
         ({dynamic hint}) => gFFI.abModel.pullAb(
             force: hint == null ? ForcePullAb.listAndCurrent : null,
             quiet: false)),
-    _TabEntry(
+    isDesktop ? _TabEntry(const SgoDirectory()) : _TabEntry(
       MyGroup(
         menuPadding: _menuPadding(),
       ),

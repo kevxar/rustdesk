@@ -9,6 +9,12 @@ Repositorio corporativo: https://github.com/kevxar/sgo-soporte-remoto
 - Servidor hbbs/hbbr corporativo y clave publica incorporados al compilar.
 - Integracion con el agente SGO: estado, sincronizacion, reparacion y actualizacion.
 - Directorio de equipos con autorizacion del administrador verificada por SGO.
+- Inicio corporativo mediante el SSO de SGO en el navegador, con cuenta
+  @electroram.cl y los controles de segundo factor existentes. El cliente no
+  solicita ni envia la clave corporativa al API heredado. La vinculacion usa un
+  codigo de un solo uso y el servidor revalida rol, cuenta y organizacion.
+- En Windows, las pestañas heredadas de cuentas y equipos abren el directorio
+  corporativo. La atribucion original permanece en Acerca de y las licencias.
 - Instaladores y actualizaciones con comprobacion SHA-256.
 - Paquetes de fuentes correspondientes y avisos de licencia distribuidos con las releases.
 

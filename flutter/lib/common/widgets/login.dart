@@ -10,6 +10,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../common.dart';
+import '../../desktop/pages/sgo_directory.dart';
 import './dialog.dart';
 
 const kOpSvgList = [
@@ -454,6 +455,17 @@ const kAuthReqTypeOidc = 'oidc/';
 
 // call this directly
 Future<bool?> loginDialog() async {
+  // Las credenciales corporativas se verifican en SGO mediante el navegador.
+  // No enviarlas al API de cuentas heredado del cliente remoto.
+  if (isDesktop) {
+    return gFFI.dialogManager.show<bool>((setState, close, context) {
+      return AlertDialog(
+        title: const Text('SSO corporativo · SGO Soporte Remoto'),
+        content: const SizedBox(width: 620, height: 440, child: SgoDirectory()),
+        actions: [TextButton(onPressed: () => close(false), child: const Text('Cerrar'))],
+      );
+    });
+  }
   var username =
       TextEditingController(text: UserModel.getLocalUserInfo()?['name'] ?? '');
   var password = TextEditingController();

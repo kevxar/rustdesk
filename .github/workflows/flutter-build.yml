@@ -283,6 +283,13 @@ jobs:
           # Windows: build RustDesk
           # --hwcodec is shared by all Windows targets; per-target extras (e.g. --vram) come from the matrix
           python3 .\build.py --portable --flutter --skip-portable-pack --hwcodec ${{ matrix.job.build-args }}
+          if ($LASTEXITCODE -ne 0) { throw 'La compilacion corporativa fallo.' }
+          if ('${{ matrix.job.arch }}' -eq 'x86_64') {
+            Push-Location flutter
+            flutter test --no-pub test/sgo_directory_test.dart
+            if ($LASTEXITCODE -ne 0) { throw 'La prueba del acceso SSO corporativo fallo.' }
+            Pop-Location
+          }
           mv ./flutter/build/windows/${{ matrix.job.flutter-arch }}/runner/Release ./rustdesk
 
           # Download usbmmidd_v2.zip and extract it to ./rustdesk

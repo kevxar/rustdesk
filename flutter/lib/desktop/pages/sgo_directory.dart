@@ -76,8 +76,8 @@ class _SgoDirectoryState extends State<SgoDirectory> {
       const Text('Equipos SGO', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
       if (error != null) Text(error!, style: const TextStyle(color: Colors.orange)),
       if (token == null) ...[
-        const Text('Vincula tu cuenta de administrador para consultar los equipos de tu organizacion.'),
-        TextButton(onPressed: () => launchUrlString('$origin/soporte/acceso', mode: LaunchMode.externalApplication), child: const Text('Iniciar sesion en SGO')),
+        const Text('Accede con tu cuenta corporativa @electroram.cl. SGO valida tu identidad, segundo factor y permisos de administrador.'),
+        TextButton(onPressed: () => launchUrlString('$origin/soporte/iniciar', mode: LaunchMode.externalApplication), child: const Text('Continuar con SSO corporativo')),
         TextField(controller: code, obscureText: true, decoration: const InputDecoration(labelText: 'Codigo de vinculacion de SGO')),
         FilledButton(onPressed: busy ? null : authorize, child: Text(busy ? 'Verificando...' : 'Vincular')),
       ] else ...[

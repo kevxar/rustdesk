@@ -211,8 +211,8 @@ libxdo-sys = { path = "libs/libxdo-sys-stub" }
 
 [package.metadata.winres]
 LegalCopyright = "Copyright © 2026 Purslane Tech Pte. Ltd. and contributors; corporate modifications © 2026 Electroram Telecomunicaciones and Kevin Araya Reygada."
-ProductName = "Electroram Soporte"
-FileDescription = "Electroram Soporte Remote Assistance"
+ProductName = "SGO Soporte Remoto"
+FileDescription = "SGO Soporte Remoto Remote Assistance"
 OriginalFilename = "ElectroramSoporte.exe"
 
 [target.'cfg(target_os="windows")'.build-dependencies]

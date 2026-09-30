@@ -28,7 +28,7 @@ class _SgoAgentPanelState extends State<SgoAgentPanel> {
   static const _taskName = 'SGO-ERAM Agente';
   static const _defaultSgoUrl = 'https://sgo.electroram.cl';
   static const _clientUrl =
-      'https://github.com/kevxar/rustdesk/releases/download/nightly/Electroram-Soporte-windows-x86_64.exe';
+      'https://github.com/kevxar/sgo-soporte-remoto/releases/download/nightly/Electroram-Soporte-windows-x86_64.exe';
   static const _clientHashUrl = '$_clientUrl.sha256';
 
   Timer? _timer;

@@ -1,3 +1,36 @@
+# SGO Soporte Remoto
+
+Cliente corporativo de asistencia remota de Electroram, derivado de RustDesk.
+Repositorio corporativo: https://github.com/kevxar/sgo-soporte-remoto
+
+## Cambios corporativos
+
+- Nombre visible SGO Soporte Remoto, logo e isotipo de Electroram.
+- Servidor hbbs/hbbr corporativo y clave publica incorporados al compilar.
+- Integracion con el agente SGO: estado, sincronizacion, reparacion y actualizacion.
+- Directorio de equipos con autorizacion del administrador verificada por SGO.
+- Instaladores y actualizaciones con comprobacion SHA-256.
+- Paquetes de fuentes correspondientes y avisos de licencia distribuidos con las releases.
+
+## Compatibilidad de la marca
+
+El nombre visible cambia; los identificadores internos heredados ElectroramSoporte
+(servicio, ejecutable, registro y directorios de configuracion) se mantienen para
+conservar IDs remotos, configuracion y actualizaciones de equipos ya instalados.
+El asset Electroram-Soporte-windows-x86_64.exe se conserva como alias compatible.
+Las referencias corporativas usan el nuevo repositorio; upstream sigue siendo
+https://github.com/rustdesk/rustdesk.
+
+## Licencia y atribucion
+
+Este proyecto sigue siendo un fork de RustDesk bajo la licencia de LICENSE.
+Se conservan los avisos de copyright de Purslane Tech Pte. Ltd. y colaboradores,
+y la atribucion del software original. Las modificaciones corporativas se atribuyen
+a Electroram Telecomunicaciones y Kevin Araya Reygada. El cambio de nombre no
+sustituye la licencia ni elimina las obligaciones de proporcionar el codigo fuente.
+
+---
+
 <p align="center">
   <img src="res/logo-header.svg" alt="RustDesk - Your remote desktop"><br>
   <a href="#raw-steps-to-build">Build</a> •

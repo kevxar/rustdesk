@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "Electroram Telecomunicaciones" "\0"
-            VALUE "FileDescription", "Electroram Soporte" "\0"
+            VALUE "FileDescription", "SGO Soporte Remoto" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "ElectroramSoporte" "\0"
             VALUE "LegalCopyright", "Copyright © 2026 Purslane Tech Pte. Ltd. and contributors; corporate modifications © 2026 Electroram Telecomunicaciones and Kevin Araya Reygada." "\0"
             VALUE "OriginalFilename", "ElectroramSoporte.exe" "\0"
-            VALUE "ProductName", "Electroram Soporte" "\0"
+            VALUE "ProductName", "SGO Soporte Remoto" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
